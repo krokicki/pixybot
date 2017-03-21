@@ -53,7 +53,7 @@ dt = 20
 timeout = 0.5
 currentTime = datetime.now()
 lastTime = datetime.now()
-
+lastFire = lastTime
 
 #### defining motor function variables
 # 5% drive is deadband
@@ -169,14 +169,13 @@ def loop():
     Main loop, Gets blocks from pixy, analyzes target location,
     chooses action for robot and sends instruction to motors
     """
-    global blocks, throttle, diffDrive, diffGain, bias, advance, turnError, currentTime, lastTime, objectDist, distError, panError_prev, distError_prev, panLoop, killed
+    global blocks, throttle, diffDrive, diffGain, bias, advance, turnError, currentTime, lastTime, objectDist, distError, panError_prev, distError_prev, panLoop, killed, lastFire
 
     if ser.in_waiting:
-        print "reading line from serial.."
+        print "Reading line from serial.."
         code = ser.readline().rstrip()
         print "Got IR code %s" % code
         killed = True
-
         #if code=="58391E4E" or code=="9DF14DB3" or code=="68B92":
         #    killed = True
         #
@@ -184,6 +183,7 @@ def loop():
         #    killed = False
 
     if killed:
+        print "I'm hit!"
         motors.setSpeeds(0, 0)
         time.sleep(5)
 
@@ -201,7 +201,13 @@ def loop():
     # Check which the largest block's signature and either do target chasing or
     # line following
     if count > 0:
-        ser.write("FIRE")
+
+        time_difference = currentTime - lastFire
+        if time_difference.total_seconds() >= 1:
+            print "Fire!"
+            ser.write("FIRE\n")
+            lastFire = currentTime
+
         lastTime = currentTime
         # if the largest block is the object to pursue, then prioritize this behavior
         if blocks[0].signature == 1:
@@ -228,6 +234,7 @@ def loop():
             throttle = 0.0
             diffDrive = 1
         panLoop.update(panError)
+
     # Update pixy's pan position
     pixy.pixy_rcs_set_position(PIXY_RCS_PAN_CHANNEL, panLoop.m_pos)
 
